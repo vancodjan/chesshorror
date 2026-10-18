@@ -2743,7 +2743,8 @@
       gameState = 'OVER';
       updateHUD();
       const overDesc = `The ${enemy.name} (${enemy.symbol}) ambushed you from the ${dirText} and claimed your final life after ${player.turns} moves.`;
-      showOverlay('CHECKMATE', overDesc, 'TRY AGAIN');
+      const retryLabel = isCoopActive() ? '🔄 RETRY TOGETHER (SAME ROOM)' : 'TRY AGAIN';
+      showOverlay('CHECKMATE', overDesc, retryLabel);
       broadcastFullGameState(`💀 CHECKMATE! ${overDesc}`);
     } else {
       gameState = 'PLAYING';
@@ -2880,7 +2881,8 @@
         playSound('win');
         gameState = 'WIN';
         const winText = `Unlocked the ancient door and escaped in ${player.turns} moves with ${player.lives} lives remaining!`;
-        showOverlay('YOU ESCAPED THE LABYRINTH', winText, 'PLAY AGAIN');
+        const playAgainLabel = isCoopActive() ? '🔄 PLAY AGAIN TOGETHER (SAME ROOM)' : 'PLAY AGAIN';
+        showOverlay('YOU ESCAPED THE LABYRINTH', winText, playAgainLabel);
         broadcastFullGameState(`🏆 YOU ESCAPED THE LABYRINTH! ${winText}`);
         return;
       } else {
@@ -3399,6 +3401,8 @@
     updateHUD();
   }
 
+  const SESSION_STATE_KEY = 'citd_active_session_v1';
+
   function serializeFullGameState(logMsg = null, extra = {}) {
     const gridRows = grid.map(r => r.join(''));
     const exploredRows = explored.map(r => r.map(v => v ? '1' : '0').join(''));
@@ -3409,8 +3413,21 @@
       currentDifficulty,
       totalKeysNeeded,
       activeKingTurn,
+      coopMode,
+      p2pSession: {
+        active: p2pState.active,
+        isHost: p2pState.isHost,
+        roomCode: p2pState.roomCode,
+        myRole: p2pState.myRole
+      },
       gridRows,
       exploredRows,
+      rooms: rooms.map(rm => ({
+        id: rm.id,
+        x: rm.x, y: rm.y, w: rm.w, h: rm.h,
+        cx: rm.cx, cy: rm.cy,
+        tiles: rm.tiles ? rm.tiles.map(t => ({ x: t.x, y: t.y })) : []
+      })),
       player: {
         x: player.x, y: player.y,
         lives: player.lives, maxLives: player.maxLives,
@@ -3449,18 +3466,38 @@
         x: tutorialNpc.x, y: tutorialNpc.y,
         speech: tutorialNpc.speech
       },
-      logMsg,
+      logMsg: logMsg || document.getElementById('log')?.textContent || '',
       ...extra
     };
   }
 
-  function applyFullGameState(data) {
+  function saveSessionStateToStorage(logMsg = null) {
+    if (gameState === 'MENU' || gameState === 'BUILDER') return;
+    try {
+      const snap = serializeFullGameState(logMsg);
+      if (snap.gameState === 'ATTACK_ANIM' || snap.gameState === 'FALL_ANIM') {
+        snap.gameState = 'PLAYING';
+      }
+      sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify(snap));
+    } catch (e) {}
+  }
+
+  function clearSavedSessionState() {
+    try {
+      sessionStorage.removeItem(SESSION_STATE_KEY);
+    } catch (e) {}
+  }
+
+  function applyFullGameState(data, isLocalRestore = false) {
     if (!data) return;
     gameState = data.gameState || 'PLAYING';
     currentMode = data.currentMode || currentMode;
     currentDifficulty = data.currentDifficulty || currentDifficulty;
     totalKeysNeeded = data.totalKeysNeeded ?? totalKeysNeeded;
     activeKingTurn = data.activeKingTurn || 'GREEN';
+    if (data.coopMode && isLocalRestore) {
+      coopMode = data.coopMode;
+    }
 
     if (Array.isArray(data.gridRows) && data.gridRows.length === MAP_H) {
       grid = data.gridRows.map(r => r.split('').map(Number));
@@ -3468,27 +3505,41 @@
     if (Array.isArray(data.exploredRows) && data.exploredRows.length === MAP_H) {
       explored = data.exploredRows.map(r => r.split('').map(ch => ch === '1'));
     }
+    if (Array.isArray(data.rooms) && data.rooms.length > 0) {
+      rooms = data.rooms.map(rm => ({
+        ...rm,
+        tiles: Array.isArray(rm.tiles) ? rm.tiles : []
+      }));
+    }
 
     if (data.player) {
       player.x = data.player.x;
       player.y = data.player.y;
+      if (isLocalRestore) {
+        player.drawX = player.x;
+        player.drawY = player.y;
+      }
       player.lives = data.player.lives;
       player.maxLives = data.player.maxLives ?? 3;
       player.keys = data.player.keys;
       player.ammo = data.player.ammo;
       player.bandages = data.player.bandages;
       player.turns = data.player.turns;
-      if (p2pState.myRole !== 'GREEN' && typeof data.player.aimAngle === 'number') {
+      if ((isLocalRestore || p2pState.myRole !== 'GREEN') && typeof data.player.aimAngle === 'number') {
         player.aimAngle = data.player.aimAngle;
         player.targetAimAngle = data.player.aimAngle;
       }
     }
 
     if (data.purpleKing) {
-      purpleKing.active = true;
+      purpleKing.active = Boolean(data.purpleKing.active);
       purpleKing.x = data.purpleKing.x;
       purpleKing.y = data.purpleKing.y;
-      if (p2pState.myRole !== 'PURPLE' && typeof data.purpleKing.aimAngle === 'number') {
+      if (isLocalRestore) {
+        purpleKing.drawX = purpleKing.x;
+        purpleKing.drawY = purpleKing.y;
+      }
+      if ((isLocalRestore || p2pState.myRole !== 'PURPLE') && typeof data.purpleKing.aimAngle === 'number') {
         purpleKing.aimAngle = data.purpleKing.aimAngle;
         purpleKing.targetAimAngle = data.purpleKing.aimAngle;
       }
@@ -3507,7 +3558,15 @@
     if (Array.isArray(data.gateDoors)) gateDoors = data.gateDoors;
     if (Array.isArray(data.levers)) levers = data.levers;
     if (Array.isArray(data.crumbling)) crumblingTiles = new Map(data.crumbling);
-    if (Array.isArray(data.promotionCenters)) promotionCenters = data.promotionCenters;
+    if (Array.isArray(data.promotionCenters)) {
+      promotionCenters = data.promotionCenters.map(pc => {
+        const rm = rooms.find(r => r.id === pc.roomId);
+        return {
+          ...pc,
+          roomTileSet: rm && rm.tiles ? new Set(rm.tiles.map(t => `${t.x},${t.y}`)) : new Set()
+        };
+      });
+    }
     if (Array.isArray(data.enemies)) {
       enemies = data.enemies.map(e => ({
         ...e, drawX: e.x, drawY: e.y
@@ -3518,6 +3577,9 @@
       tutorialNpc.active = data.tutorialNpc.active;
       tutorialNpc.x = data.tutorialNpc.x;
       tutorialNpc.y = data.tutorialNpc.y;
+      tutorialNpc.drawX = data.tutorialNpc.x;
+      tutorialNpc.drawY = data.tutorialNpc.y;
+      tutorialNpc.speech = data.tutorialNpc.speech || '';
       if (data.tutorialNpc.active && data.tutorialNpc.speech) {
         setNpcDialogue(data.tutorialNpc.speech);
       } else {
@@ -3525,30 +3587,37 @@
       }
     }
 
-    if (data.attackEvent) {
-      playSound('jumpscare');
-      const flash = document.getElementById('damageFlash');
-      flash.style.opacity = '1';
-      setTimeout(() => { flash.style.opacity = '0'; }, 450);
-    } else {
-      playSound('step');
+    if (!isLocalRestore) {
+      if (data.attackEvent) {
+        playSound('jumpscare');
+        const flash = document.getElementById('damageFlash');
+        flash.style.opacity = '1';
+        setTimeout(() => { flash.style.opacity = '0'; }, 450);
+      } else {
+        playSound('step');
+      }
     }
+
+    const retryBtnText = isCoopActive() ? '🔄 RETRY TOGETHER (SAME ROOM)' : 'TRY AGAIN';
+    const winBtnText = isCoopActive() ? '🔄 PLAY AGAIN TOGETHER (SAME ROOM)' : 'PLAY AGAIN';
 
     if (gameState === 'PLAYING') {
       document.getElementById('overlay').classList.add('hidden');
     } else if (gameState === 'OVER') {
-      showOverlay('CHECKMATE', data.logMsg || 'The Black forces claimed the labyrinth.', 'TRY AGAIN');
+      showOverlay('CHECKMATE', data.logMsg || 'Both Kings fell to the Black forces in the dark.', retryBtnText);
     } else if (gameState === 'WIN') {
-      playSound('win');
-      showOverlay('YOU ESCAPED THE LABYRINTH', data.logMsg || 'Both Kings escaped the dark!', 'PLAY AGAIN');
+      if (!isLocalRestore) playSound('win');
+      showOverlay('YOU ESCAPED THE LABYRINTH', data.logMsg || 'Both Kings escaped the dark!', winBtnText);
     }
 
     if (data.logMsg) setLog(data.logMsg);
     computePlayerDistanceField();
     updateHUD();
+    saveSessionStateToStorage(data.logMsg);
   }
 
   function broadcastFullGameState(logMsg = null, extra = {}) {
+    saveSessionStateToStorage(logMsg);
     if (!p2pState.active || !p2pState.conn || !p2pState.conn.open) return;
     if (!p2pState.isHost) return;
     try {
@@ -3579,19 +3648,20 @@
     updateCoopModeButtonsUI();
   }
 
-  function hostP2PRoom() {
+  function hostP2PRoom(existingCode = null, preserveCurrentGame = false) {
     disconnectP2P();
     coopMode = 'ONLINE';
     if (!window.Peer) {
       setP2PStatusMessage('PeerJS failed to load. Check your internet connection.', true);
       return;
     }
-    const code = generateShortRoomCode();
+    const code = existingCode || generateShortRoomCode();
     p2pState.roomCode = code;
     p2pState.isHost = true;
     p2pState.myRole = 'GREEN';
     setP2PStatusMessage('⏳ Registering Room on P2P Signaling Server...');
     updateCoopModeButtonsUI();
+    saveSessionStateToStorage();
 
     try {
       p2pState.peer = new window.Peer(PEER_PREFIX + code, {
@@ -3604,8 +3674,9 @@
       });
 
       p2pState.peer.on('open', () => {
-        setP2PStatusMessage(`✅ Room <b class="text-white">${code}</b> is live! Share the code or Invite Link with Player 2.`);
+        setP2PStatusMessage(`✅ Room <b class="text-white">${code}</b> is live! Share the Invite Link or code with Player 2.`);
         updateCoopModeButtonsUI();
+        saveSessionStateToStorage();
       });
 
       p2pState.peer.on('error', (err) => {
@@ -3614,14 +3685,14 @@
 
       p2pState.peer.on('connection', (conn) => {
         p2pState.conn = conn;
-        setupP2PConnectionHandlers();
+        setupP2PConnectionHandlers(preserveCurrentGame);
       });
     } catch (e) {
       setP2PStatusMessage('Could not initialize PeerJS.', true);
     }
   }
 
-  function joinP2PRoom(rawCode) {
+  function joinP2PRoom(rawCode, isAutoInvite = false) {
     const code = (rawCode || '').trim().toUpperCase().replace(/^CITD-FULL-V1-/i, '');
     if (!code) {
       setP2PStatusMessage('Please enter a 6-character Room Code.', true);
@@ -3637,6 +3708,14 @@
     p2pState.roomCode = code;
     p2pState.isHost = false;
     p2pState.myRole = 'PURPLE';
+    const inputEl = document.getElementById('p2p-code-input');
+    if (inputEl) inputEl.value = code;
+
+    if (isAutoInvite) {
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('p2p-modal').classList.add('hidden');
+      setLog(`🌐 Connecting directly to Online Room ${code} as Purple King (🟣)...`);
+    }
     setP2PStatusMessage(`⏳ Connecting to Room <b class="text-white">${code}</b>...`);
     updateCoopModeButtonsUI();
 
@@ -3658,13 +3737,16 @@
 
       p2pState.peer.on('error', (err) => {
         setP2PStatusMessage(`Connection failed (${err.type || 'Room not found'}). Check code and retry.`, true);
+        if (isAutoInvite) {
+          document.getElementById('p2p-modal').classList.remove('hidden');
+        }
       });
     } catch (e) {
       setP2PStatusMessage('Failed to connect to room.', true);
     }
   }
 
-  function setupP2PConnectionHandlers() {
+  function setupP2PConnectionHandlers(preserveCurrentGame = false) {
     const conn = p2pState.conn;
     if (!conn) return;
 
@@ -3676,18 +3758,19 @@
 
       if (p2pState.isHost) {
         setP2PStatusMessage(`🎉 <b class="text-emerald-400">Player 2 Connected!</b> You are <b>Green King 🟢</b>.`);
-        if (gameState === 'MENU') {
+        document.getElementById('p2p-modal').classList.add('hidden');
+        if (gameState === 'MENU' && !preserveCurrentGame) {
           document.getElementById('overlay').classList.add('hidden');
-          document.getElementById('p2p-modal').classList.add('hidden');
           initGame();
           gameState = 'PLAYING';
         } else {
-          placePurpleKingNearGreen();
+          if (!purpleKing.x || !purpleKing.y) placePurpleKingNearGreen();
         }
         broadcastFullGameState('🌐 P2P Connected! 🟢 Green King & 🟣 Purple King are in the Labyrinth!');
       } else {
         setP2PStatusMessage(`🎉 <b class="text-emerald-400">Connected to Host!</b> You are <b>Purple King 🟣</b>.`);
         document.getElementById('p2p-modal').classList.add('hidden');
+        document.getElementById('overlay').classList.add('hidden');
         conn.send({ type: 'REQUEST_SYNC' });
       }
     });
@@ -3695,7 +3778,7 @@
     conn.on('data', (data) => {
       if (!data || typeof data !== 'object') return;
       if (data.type === 'FULL_SYNC') {
-        applyFullGameState(data);
+        applyFullGameState(data, false);
       } else if (data.type === 'REQUEST_SYNC' && p2pState.isHost) {
         broadcastFullGameState();
       } else if (data.type === 'AIM_SYNC') {
@@ -3707,6 +3790,12 @@
       } else if (data.type === 'GUEST_ACTION' && p2pState.isHost) {
         if (data.action === 'REQUEST_SYNC') {
           broadcastFullGameState();
+          return;
+        }
+        if (data.action === 'RETRY_GAME') {
+          document.getElementById('overlay').classList.add('hidden');
+          gameState = 'PLAYING';
+          initGame();
           return;
         }
         if (activeKingTurn !== 'PURPLE') return;
@@ -3733,8 +3822,8 @@
 
     conn.on('close', () => {
       p2pState.active = false;
-      setP2PStatusMessage('⚠️ Partner disconnected. Switched to Local Hotseat so you can keep playing.', true);
-      setLog('⚠️ P2P Partner disconnected. Switched to Local Co-op control.');
+      setP2PStatusMessage('⚠️ Partner disconnected. Waiting for reconnect or play in Local Co-op.', true);
+      setLog('⚠️ P2P Partner disconnected. If they refresh, they will automatically rejoin this room!');
       updateCoopModeButtonsUI();
     });
   }
@@ -3788,23 +3877,26 @@
   document.getElementById('p2p-close-top').addEventListener('click', () => p2pModal.classList.add('hidden'));
   document.getElementById('p2p-close-btn').addEventListener('click', () => p2pModal.classList.add('hidden'));
 
-  document.getElementById('coop-mode-solo').addEventListener('click', () => {
-    disconnectP2P();
-    coopMode = 'SOLO';
-    purpleKing.active = false;
+  function setCoopModeSelection(mode) {
+    if (mode === 'SOLO') {
+      disconnectP2P();
+      coopMode = 'SOLO';
+      purpleKing.active = false;
+    } else if (mode === 'LOCAL') {
+      disconnectP2P();
+      coopMode = 'LOCAL';
+      placePurpleKingNearGreen();
+    } else if (mode === 'ONLINE') {
+      coopMode = 'ONLINE';
+      placePurpleKingNearGreen();
+    }
     updateCoopModeButtonsUI();
-  });
-  document.getElementById('coop-mode-local').addEventListener('click', () => {
-    disconnectP2P();
-    coopMode = 'LOCAL';
-    placePurpleKingNearGreen();
-    updateCoopModeButtonsUI();
-  });
-  document.getElementById('coop-mode-online').addEventListener('click', () => {
-    coopMode = 'ONLINE';
-    placePurpleKingNearGreen();
-    updateCoopModeButtonsUI();
-  });
+    saveSessionStateToStorage();
+  }
+
+  document.getElementById('coop-mode-solo').addEventListener('click', () => setCoopModeSelection('SOLO'));
+  document.getElementById('coop-mode-local').addEventListener('click', () => setCoopModeSelection('LOCAL'));
+  document.getElementById('coop-mode-online').addEventListener('click', () => setCoopModeSelection('ONLINE'));
 
   document.getElementById('p2p-host-btn').addEventListener('click', () => {
     initAudio();
@@ -3812,12 +3904,12 @@
   });
   document.getElementById('p2p-join-btn').addEventListener('click', () => {
     initAudio();
-    joinP2PRoom(document.getElementById('p2p-code-input').value);
+    joinP2PRoom(document.getElementById('p2p-code-input').value, false);
   });
   document.getElementById('p2p-code-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       initAudio();
-      joinP2PRoom(e.target.value);
+      joinP2PRoom(e.target.value, false);
     }
   });
   document.getElementById('p2p-disconnect-btn').addEventListener('click', () => {
@@ -3825,6 +3917,7 @@
     coopMode = 'SOLO';
     purpleKing.active = false;
     updateCoopModeButtonsUI();
+    saveSessionStateToStorage();
   });
   document.getElementById('p2p-copy-code').addEventListener('click', () => {
     if (!p2pState.roomCode) return;
@@ -3836,7 +3929,7 @@
     const u = new URL(window.location.href);
     u.searchParams.set('room', p2pState.roomCode);
     navigator.clipboard?.writeText(u.toString());
-    setP2PStatusMessage(`🔗 Copied Invite Link! Send it to Player 2 to auto-join.`);
+    setP2PStatusMessage(`🔗 Copied Invite Link! Anyone clicking it joins the game automatically.`);
   });
 
   // Mobile Stalkers HUD collapse toggle
@@ -4162,6 +4255,9 @@
     document.getElementById('overlay').classList.add('hidden');
     if (currentMode === 'CUSTOM_BUILDER' && !playingFromBuilder) {
       enterBuilderMode();
+    } else if (p2pState.active && !p2pState.isHost) {
+      setLog('🔄 Requesting Host to start a fresh Labyrinth run for both Kings...');
+      sendGuestAction({ action: 'RETRY_GAME' });
     } else {
       gameState = 'PLAYING';
       initGame();
@@ -4195,6 +4291,7 @@
   document.getElementById('b-btn-menu').addEventListener('click', () => {
     savedCustomScenario = serializeCurrentScenario();
     document.getElementById('builder-ui').classList.add('hidden');
+    clearSavedSessionState();
     showOverlay('CHECKMATE IN THE DARK', 'Select a scenario or return to your custom map.', 'ENTER THE LABYRINTH');
   });
 
@@ -4275,10 +4372,12 @@
 
   document.getElementById('btn-new').addEventListener('click', () => {
     initAudio();
+    gameState = 'MENU';
+    clearSavedSessionState();
     showOverlay(
       'CHECKMATE IN THE DARK',
       'Choose your difficulty below or start a new labyrinth.',
-      'ENTER THE LABYRINTH'
+      isCoopActive() ? '🔄 START NEW LABYRINTH TOGETHER' : 'ENTER THE LABYRINTH'
     );
   });
 
@@ -5215,7 +5314,8 @@
           gameState = 'OVER';
           updateHUD();
           const overDesc = `You fell into the abyss pit and lost your final life after ${player.turns} moves.`;
-          showOverlay('CHECKMATE', overDesc, 'TRY AGAIN');
+          const retryLabel = isCoopActive() ? '🔄 RETRY TOGETHER (SAME ROOM)' : 'TRY AGAIN';
+          showOverlay('CHECKMATE', overDesc, retryLabel);
           broadcastFullGameState(`💀 CHECKMATE! ${overDesc}`);
         } else {
           gameState = 'PLAYING';
@@ -5325,19 +5425,49 @@
     requestAnimationFrame(render);
   }
 
+  window.addEventListener('beforeunload', () => {
+    saveSessionStateToStorage();
+  });
+
   window.onload = function () {
     render();
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const roomParam = urlParams.get('room');
-      if (roomParam && roomParam.trim().length >= 3) {
-        const cleanCode = roomParam.trim().toUpperCase();
-        document.getElementById('p2p-modal').classList.remove('hidden');
-        document.getElementById('p2p-join-input').value = cleanCode;
+      const cleanUrlCode = roomParam ? roomParam.trim().toUpperCase().replace(/^CITD-FULL-V1-/i, '') : '';
+
+      // 1. Check if we have a saved active session in sessionStorage (survives page refresh!)
+      const rawSaved = sessionStorage.getItem(SESSION_STATE_KEY);
+      if (rawSaved) {
+        const saved = JSON.parse(rawSaved);
+        if (saved && saved.gameState && saved.gameState !== 'MENU') {
+          const savedP2P = saved.p2pSession || {};
+          // If URL has a different room invite than our saved session, prioritize the new invite link
+          const isDifferentRoomInvite = cleanUrlCode && savedP2P.roomCode && cleanUrlCode !== savedP2P.roomCode;
+          if (!isDifferentRoomInvite) {
+            applyFullGameState(saved, true);
+            const focusK = getActiveKing();
+            camera.x = (focusK.x + 0.5) * TILE;
+            camera.y = (focusK.y + 0.5) * TILE;
+            updateCoopModeButtonsUI();
+
+            // Re-establish P2P room automatically if this session was in Online P2P mode
+            if (saved.coopMode === 'ONLINE' && savedP2P.roomCode) {
+              if (savedP2P.isHost) {
+                hostP2PRoom(savedP2P.roomCode, true);
+              } else {
+                joinP2PRoom(savedP2P.roomCode, true);
+              }
+            }
+            return;
+          }
+        }
+      }
+
+      // 2. If opened via an Invite Link (?room=CODE), automatically join the online game right away!
+      if (cleanUrlCode && cleanUrlCode.length >= 3) {
         setCoopModeSelection('ONLINE');
-        setTimeout(() => {
-          joinP2PRoom(cleanCode);
-        }, 250);
+        joinP2PRoom(cleanUrlCode, true);
       }
     } catch (err) {}
   };
