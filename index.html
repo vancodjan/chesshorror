@@ -210,8 +210,27 @@
   <div id="flashlight-joy-knob" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-amber-400/90 border-2 border-white shadow-[0_0_16px_rgba(251,191,36,0.95)] absolute pointer-events-none transition-transform duration-75"></div>
 </div>
 
-<!-- BOTTOM LOG & ACTION BAR -->
+<!-- BOTTOM LOG, QUICK-CHAT EMOTES & ACTION BAR -->
 <div class="fixed bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 sm:gap-2 z-10 w-[96%] max-w-xl pointer-events-none">
+  <!-- Quick-Chat Emote Bar (Collapsible via 💬 Emote button or keys 1-5) -->
+  <div id="coop-emote-bar" class="hidden glass-panel px-2.5 py-1.5 rounded-xl border border-fuchsia-500/40 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto shadow-[0_0_20px_rgba(217,70,239,0.25)]">
+    <button data-emote="FOLLOW" class="emote-btn px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-emerald-950/80 border border-zinc-700 hover:border-emerald-400 text-[10px] sm:text-xs font-semibold text-zinc-100 transition">
+      👋 Follow <span class="hidden sm:inline text-zinc-500">[1]</span>
+    </button>
+    <button data-emote="DANGER" class="emote-btn px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-red-950/80 border border-zinc-700 hover:border-red-400 text-[10px] sm:text-xs font-semibold text-zinc-100 transition">
+      👀 Watch Out! <span class="hidden sm:inline text-zinc-500">[2]</span>
+    </button>
+    <button data-emote="SHOOT" class="emote-btn px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-amber-950/80 border border-zinc-700 hover:border-amber-400 text-[10px] sm:text-xs font-semibold text-zinc-100 transition">
+      🔫 Shoot! <span class="hidden sm:inline text-zinc-500">[3]</span>
+    </button>
+    <button data-emote="WAIT" class="emote-btn px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-sky-950/80 border border-zinc-700 hover:border-sky-400 text-[10px] sm:text-xs font-semibold text-zinc-100 transition">
+      ⏳ Wait <span class="hidden sm:inline text-zinc-500">[4]</span>
+    </button>
+    <button data-emote="HEAL" class="emote-btn px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-fuchsia-950/80 border border-zinc-700 hover:border-fuchsia-400 text-[10px] sm:text-xs font-semibold text-zinc-100 transition">
+      ❤️ Heal! <span class="hidden sm:inline text-zinc-500">[5]</span>
+    </button>
+  </div>
+
   <div id="log" class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[11px] sm:text-sm text-center text-zinc-200 tracking-wide w-full truncate sm:whitespace-normal">
     Watch out for cracked crumbling stone floors! Tap a highlighted tile to step.
   </div>
@@ -230,6 +249,12 @@
     </button>
     <button id="btn-compass" class="glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs text-amber-300 hover:text-amber-200 hover:border-amber-400/50 transition">
       🧭 Pulse (H)
+    </button>
+    <button id="btn-ping-mode" class="glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-300 border border-emerald-500/40 hover:bg-emerald-950/60 transition" title="Right-click or long-press any tile, or toggle this to tap-ping!">
+      📍 Ping (V)
+    </button>
+    <button id="btn-emote-toggle" class="glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs font-bold text-fuchsia-300 border border-fuchsia-500/40 hover:bg-fuchsia-950/60 transition" title="Quick-Chat Emotes (Keys 1-5)">
+      💬 Emote
     </button>
     <button id="btn-p2p-open" class="glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs font-bold text-sky-300 border border-sky-500/50 hover:bg-sky-950/60 transition">
       🌐 Co-op / P2P
@@ -560,6 +585,39 @@
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
       osc.start(now);
       osc.stop(now + 0.6);
+    } else if (type === 'ping_move') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.16);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+      osc.start(now);
+      osc.stop(now + 0.26);
+    } else if (type === 'ping_danger') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(740, now);
+      osc.frequency.setValueAtTime(520, now + 0.09);
+      osc.frequency.setValueAtTime(740, now + 0.18);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+      osc.start(now);
+      osc.stop(now + 0.34);
+    } else if (type === 'ping_obj') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(659.25, now);
+      osc.frequency.setValueAtTime(987.77, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+      osc.start(now);
+      osc.stop(now + 0.32);
+    } else if (type === 'emote') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(493.88, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.12);
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
     }
   }
 
@@ -587,6 +645,9 @@
   let crumblingTiles = new Map(); // key: "x,y", value: { state: 'INTACT' | 'CRACKED' | 'COLLAPSED' }
   let particles = [];
   let pulseWaves = [];
+  let activePings = []; // { gx, gy, role, pingType, label, icon, color, createdAt, duration }
+  let activeEmotes = []; // { role, icon, text, color, createdAt, duration }
+  let isPingModeActive = false;
 
   const DIFFICULTIES = {
     EASY: { label: 'APPRENTICE', bishopCooldown: 2, roster: ['KNIGHT', 'BISHOP', 'KNIGHT', 'ROOK', 'BISHOP', 'QUEEN', 'BLACK_KING'] },
@@ -3787,6 +3848,10 @@
         } else if (data.role === 'PURPLE') {
           purpleKing.targetAimAngle = data.angle;
         }
+      } else if (data.type === 'COOP_PING') {
+        spawnTacticalPingObject(data, false);
+      } else if (data.type === 'COOP_EMOTE') {
+        spawnCoopEmoteObject(data, false);
       } else if (data.type === 'GUEST_ACTION' && p2pState.isHost) {
         if (data.action === 'REQUEST_SYNC') {
           broadcastFullGameState();
@@ -3828,6 +3893,168 @@
     });
   }
 
+  // ============================================================================
+  // CO-OP TACTICAL MAP PINGS & QUICK-CHAT EMOTES (Turn-Independent P2P Sync)
+  // ============================================================================
+  const EMOTE_PRESETS = {
+    FOLLOW: { icon: '👋', text: 'Follow Me!' },
+    DANGER: { icon: '👀', text: 'Watch Out!' },
+    SHOOT:  { icon: '🔫', text: 'Shoot It!' },
+    WAIT:   { icon: '⏳', text: 'Wait Here' },
+    HEAL:   { icon: '🩹', text: 'Need Heal!' }
+  };
+
+  function getMyRoleForCallout() {
+    if (p2pState.active) return p2pState.myRole;
+    if (isCoopActive() && purpleKing.active) return activeKingTurn;
+    return 'GREEN';
+  }
+
+  function spawnTacticalPingObject(pingData, sendOverP2P = true) {
+    const { gx, gy, role, pingType, label, icon, color } = pingData;
+    initAudio();
+    if (pingType === 'DANGER') playSound('ping_danger');
+    else if (pingType === 'OBJECTIVE') playSound('ping_obj');
+    else playSound('ping_move');
+
+    // Keep max 4 active pings so screen stays clean
+    if (activePings.length >= 4) activePings.shift();
+    activePings.push({
+      gx, gy, role, pingType, label, icon, color,
+      createdAt: performance.now(),
+      duration: 4500
+    });
+
+    const senderBadge = isCoopActive()
+      ? (role === 'PURPLE' ? '🟣 Purple King' : '🟢 Green King')
+      : '♔ White King';
+    setLog(`${senderBadge} pinged ${icon} ${label} at (${gx}, ${gy})!`);
+
+    if (sendOverP2P && p2pState.active && p2pState.conn && p2pState.conn.open) {
+      try {
+        p2pState.conn.send({
+          type: 'COOP_PING',
+          gx, gy, role, pingType, label, icon, color
+        });
+      } catch (e) {}
+    }
+  }
+
+  function triggerTacticalPingAt(gx, gy) {
+    if (gx < 0 || gx >= MAP_W || gy < 0 || gy >= MAP_H) return;
+    const role = getMyRoleForCallout();
+    let pingType = 'MOVE';
+    let label = 'GO HERE';
+    let icon = '📍';
+    let color = role === 'PURPLE' ? '#e879f9' : '#34d399';
+
+    // Context-aware check: Enemy on or adjacent to tile -> DANGER
+    const enemyOnTile = enemies.find(e => e.x === gx && e.y === gy);
+    if (enemyOnTile) {
+      pingType = 'DANGER';
+      label = `${enemyOnTile.name.toUpperCase()}!`;
+      icon = `⚠️ ${enemyOnTile.symbol}`;
+      color = '#ef4444';
+    } else if (door.x === gx && door.y === gy) {
+      pingType = 'OBJECTIVE';
+      label = door.unlocked ? 'EXIT UNLOCKED!' : 'EXIT DOOR';
+      icon = '🚪';
+      color = '#fbbf24';
+    } else if (keys.some(k => !k.collected && k.x === gx && k.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'KEY HERE';
+      icon = '🔑';
+      color = '#fbbf24';
+    } else if (rewardChests.some(ch => !ch.collected && ch.x === gx && ch.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'VAULT CHEST';
+      icon = '🎁';
+      color = '#facc15';
+    } else if (whiteRooks.some(wr => wr.x === gx && wr.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'WHITE ROOK';
+      icon = '♖';
+      color = '#38bdf8';
+    } else if (levers.some(lv => lv.x === gx && lv.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'GATE LEVER';
+      icon = '🕹️';
+      color = '#f59e0b';
+    } else if (guns.some(g => !g.collected && g.x === gx && g.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'REVOLVER';
+      icon = '🔫';
+      color = '#f59e0b';
+    } else if (bandages.some(b => !b.collected && b.x === gx && b.y === gy)) {
+      pingType = 'OBJECTIVE';
+      label = 'BANDAGE';
+      icon = '🩹';
+      color = '#10b981';
+    } else if (promotionCenters.some(pc => pc.active && pc.x === gx && pc.y === gy)) {
+      pingType = 'DANGER';
+      label = 'PROMO SHRINE';
+      icon = '🔮';
+      color = '#c084fc';
+    }
+
+    spawnTacticalPingObject({ gx, gy, role, pingType, label, icon, color }, true);
+  }
+
+  function spawnCoopEmoteObject(emoteData, sendOverP2P = true) {
+    const { role, icon, text, color } = emoteData;
+    initAudio();
+    playSound('emote');
+
+    // Remove existing emote for the same King role so bubbles don't overlap
+    activeEmotes = activeEmotes.filter(em => em.role !== role);
+    activeEmotes.push({
+      role, icon, text, color,
+      createdAt: performance.now(),
+      duration: 3400
+    });
+
+    const senderBadge = isCoopActive()
+      ? (role === 'PURPLE' ? '🟣 Purple King' : '🟢 Green King')
+      : '♔ White King';
+    setLog(`${senderBadge}: "${icon} ${text}"`);
+
+    if (sendOverP2P && p2pState.active && p2pState.conn && p2pState.conn.open) {
+      try {
+        p2pState.conn.send({
+          type: 'COOP_EMOTE',
+          role, icon, text, color
+        });
+      } catch (e) {}
+    }
+  }
+
+  function triggerCoopEmote(emoteKey) {
+    const preset = EMOTE_PRESETS[emoteKey];
+    if (!preset) return;
+    const role = getMyRoleForCallout();
+    const color = role === 'PURPLE' ? '#e879f9' : (isCoopActive() ? '#34d399' : '#38bdf8');
+    spawnCoopEmoteObject({
+      role,
+      icon: preset.icon,
+      text: preset.text,
+      color
+    }, true);
+  }
+
+  function setPingModeUI(active) {
+    isPingModeActive = active;
+    const btn = document.getElementById('btn-ping-mode');
+    if (!btn) return;
+    if (isPingModeActive) {
+      btn.textContent = '📍 Tap Tile to Ping!';
+      btn.className = 'glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs font-extrabold text-white bg-emerald-700/80 border-2 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] transition animate-pulse';
+      setLog('📍 PING MODE ACTIVE: Tap any square on the board to alert your partner!');
+    } else {
+      btn.textContent = '📍 Ping (V)';
+      btn.className = 'glass-panel px-2.5 py-1.5 sm:px-3.5 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-300 border border-emerald-500/40 hover:bg-emerald-950/60 transition';
+    }
+  }
+
   let lastAimBroadcast = 0;
   function broadcastAimIfNeeded(angle) {
     if (!p2pState.active || !p2pState.conn || !p2pState.conn.open) return;
@@ -3842,11 +4069,11 @@
   function isMyTurnInP2P() {
     if (!p2pState.active) return true;
     if (p2pState.myRole === 'GREEN' && activeKingTurn !== 'GREEN') {
-      setLog('⏳ Waiting for Purple King (Player 2) to move...');
+      setLog('⏳ Waiting for Purple King (Player 2) to move... (Right-click / Long-press to Ping!)');
       return false;
     }
     if (p2pState.myRole === 'PURPLE' && activeKingTurn !== 'PURPLE') {
-      setLog('⏳ Waiting for Green King (Host) to move...');
+      setLog('⏳ Waiting for Green King (Host) to move... (Right-click / Long-press to Ping!)');
       return false;
     }
     return true;
@@ -3876,6 +4103,26 @@
   document.getElementById('btn-p2p-open').addEventListener('click', () => p2pModal.classList.remove('hidden'));
   document.getElementById('p2p-close-top').addEventListener('click', () => p2pModal.classList.add('hidden'));
   document.getElementById('p2p-close-btn').addEventListener('click', () => p2pModal.classList.add('hidden'));
+
+  // Emote Bar & Ping Mode Button Listeners
+  document.getElementById('btn-ping-mode').addEventListener('click', () => {
+    initAudio();
+    setPingModeUI(!isPingModeActive);
+  });
+
+  document.getElementById('btn-emote-toggle').addEventListener('click', () => {
+    initAudio();
+    const bar = document.getElementById('coop-emote-bar');
+    bar.classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('#coop-emote-bar .emote-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = btn.getAttribute('data-emote');
+      triggerCoopEmote(key);
+    });
+  });
 
   function setCoopModeSelection(mode) {
     if (mode === 'SOLO') {
@@ -4076,12 +4323,20 @@
     }
     if (gameState !== 'PLAYING') return;
     initAudio();
-    if (!isMyTurnInP2P()) return;
 
     const worldX = clientX - canvas.width / 2 + camera.x;
     const worldY = clientY - canvas.height / 2 + camera.y;
     const gx = Math.floor(worldX / TILE);
     const gy = Math.floor(worldY / TILE);
+
+    // If Ping Mode is toggled on, tapping any tile drops a tactical ping (even off-turn!)
+    if (isPingModeActive) {
+      triggerTacticalPingAt(gx, gy);
+      setPingModeUI(false);
+      return;
+    }
+
+    if (!isMyTurnInP2P()) return;
 
     if (isFlyMode) {
       if (gx >= 1 && gx < MAP_W - 1 && gy >= 1 && gy < MAP_H - 1) {
@@ -4129,6 +4384,13 @@
       }
       return;
     }
+    // Right-click in PLAYING mode drops a Tactical Map Ping at that tile!
+    if (e.button === 2 && gameState === 'PLAYING') {
+      const worldX = e.clientX - canvas.width / 2 + camera.x;
+      const worldY = e.clientY - canvas.height / 2 + camera.y;
+      triggerTacticalPingAt(Math.floor(worldX / TILE), Math.floor(worldY / TILE));
+      return;
+    }
     handleBoardTap(e.clientX, e.clientY);
   });
 
@@ -4138,7 +4400,27 @@
     e.preventDefault();
     initAudio();
     const t = e.changedTouches[0];
-    canvasTouch = { id: t.identifier, startX: t.clientX, startY: t.clientY, moved: false, camX: camera.x, camY: camera.y };
+    const touchObj = {
+      id: t.identifier,
+      startX: t.clientX,
+      startY: t.clientY,
+      moved: false,
+      longPressed: false,
+      camX: camera.x,
+      camY: camera.y,
+      longPressTimer: null
+    };
+    if (gameState === 'PLAYING') {
+      touchObj.longPressTimer = setTimeout(() => {
+        if (canvasTouch && canvasTouch.id === touchObj.id && !canvasTouch.moved) {
+          canvasTouch.longPressed = true;
+          const worldX = touchObj.startX - canvas.width / 2 + camera.x;
+          const worldY = touchObj.startY - canvas.height / 2 + camera.y;
+          triggerTacticalPingAt(Math.floor(worldX / TILE), Math.floor(worldY / TILE));
+        }
+      }, 360);
+    }
+    canvasTouch = touchObj;
   }, { passive: false });
 
   canvas.addEventListener('touchmove', (e) => {
@@ -4150,6 +4432,10 @@
         const dist = Math.hypot(t.clientX - canvasTouch.startX, t.clientY - canvasTouch.startY);
         if (dist > 14) {
           canvasTouch.moved = true;
+          if (canvasTouch.longPressTimer) {
+            clearTimeout(canvasTouch.longPressTimer);
+            canvasTouch.longPressTimer = null;
+          }
           if (gameState === 'BUILDER') {
             camera.x = canvasTouch.camX - (t.clientX - canvasTouch.startX);
             camera.y = canvasTouch.camY - (t.clientY - canvasTouch.startY);
@@ -4174,7 +4460,13 @@
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === canvasTouch.id) {
-        if (!canvasTouch.moved) handleBoardTap(t.clientX, t.clientY);
+        if (canvasTouch.longPressTimer) {
+          clearTimeout(canvasTouch.longPressTimer);
+          canvasTouch.longPressTimer = null;
+        }
+        if (!canvasTouch.moved && !canvasTouch.longPressed) {
+          handleBoardTap(t.clientX, t.clientY);
+        }
         canvasTouch = null;
         break;
       }
@@ -4195,6 +4487,25 @@
     if (gameState !== 'PLAYING') return;
     initAudio();
     const key = e.key.toLowerCase();
+
+    // Turn-independent Co-op Quick Emotes (Keys 1-5) & Tactical Ping (V / T)
+    if (key === '1') { triggerCoopEmote('FOLLOW'); return; }
+    if (key === '2') { triggerCoopEmote('DANGER'); return; }
+    if (key === '3') { triggerCoopEmote('SHOOT'); return; }
+    if (key === '4') { triggerCoopEmote('WAIT'); return; }
+    if (key === '5') { triggerCoopEmote('HEAL'); return; }
+    if (key === 'v' || key === 't') {
+      e.preventDefault();
+      if (mouse.active) {
+        const hoverGx = Math.floor(mouse.worldX / TILE);
+        const hoverGy = Math.floor(mouse.worldY / TILE);
+        triggerTacticalPingAt(hoverGx, hoverGy);
+      } else {
+        const myK = getMyKing();
+        triggerTacticalPingAt(myK.x, myK.y);
+      }
+      return;
+    }
 
     if (key === 'f') {
       e.preventDefault();
@@ -5266,6 +5577,177 @@
       darkCtx.restore();
 
       ctx.drawImage(darkCanvas, 0, 0);
+    }
+
+    // ==========================================================================
+    // RENDER CO-OP TACTICAL PINGS & QUICK-CHAT EMOTES (Piercing the Darkness)
+    // ==========================================================================
+    const nowMs = performance.now();
+
+    // 1. Tactical Map Pings (World-space sonar rings + Off-screen edge indicator)
+    if (activePings.length > 0) {
+      for (let i = activePings.length - 1; i >= 0; i--) {
+        const pg = activePings[i];
+        const elapsed = nowMs - pg.createdAt;
+        if (elapsed >= pg.duration) {
+          activePings.splice(i, 1);
+          continue;
+        }
+        const progress = elapsed / pg.duration;
+        const fadeAlpha = progress > 0.75 ? (1 - progress) / 0.25 : 1;
+        const pwx = (pg.gx + 0.5) * TILE;
+        const pwy = (pg.gy + 0.5) * TILE;
+        const screenX = pwx + offsetX;
+        const screenY = pwy + offsetY;
+
+        // World-space sonar rings & floating badge
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.globalAlpha = fadeAlpha;
+
+        const wave1 = (elapsed * 0.0022) % 1;
+        const wave2 = ((elapsed * 0.0022) + 0.5) % 1;
+
+        ctx.strokeStyle = pg.color;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = pg.color;
+        ctx.shadowBlur = 14;
+
+        ctx.beginPath();
+        ctx.arc(pwx, pwy, TILE * (0.25 + wave1 * 1.15), 0, Math.PI * 2);
+        ctx.globalAlpha = fadeAlpha * (1 - wave1);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(pwx, pwy, TILE * (0.25 + wave2 * 1.15), 0, Math.PI * 2);
+        ctx.globalAlpha = fadeAlpha * (1 - wave2);
+        ctx.stroke();
+
+        // Center tile target box
+        ctx.globalAlpha = fadeAlpha * 0.9;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pg.gx * TILE + 4, pg.gy * TILE + 4, TILE - 8, TILE - 8);
+
+        // Floating pill badge above pinged tile
+        const bobY = Math.sin(nowMs * 0.008) * 4;
+        const badgeText = `${pg.icon} ${pg.label}`;
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        const textW = ctx.measureText(badgeText).width;
+        const pillW = textW + 16;
+        const pillH = 22;
+        const pillX = pwx - pillW / 2;
+        const pillY = pwy - TILE * 0.85 + bobY - pillH / 2;
+
+        ctx.fillStyle = 'rgba(9, 9, 15, 0.92)';
+        ctx.strokeStyle = pg.color;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.roundRect(pillX, pillY, pillW, pillH, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, pwx, pillY + pillH / 2 + 0.5);
+        ctx.restore();
+
+        // Off-screen directional indicator if ping is outside camera view
+        const pad = 48;
+        if (screenX < pad || screenX > canvas.width - pad || screenY < pad || screenY > canvas.height - pad) {
+          const cx = canvas.width / 2;
+          const cy = canvas.height / 2;
+          const ang = Math.atan2(screenY - cy, screenX - cx);
+          const edgeX = Math.max(pad, Math.min(canvas.width - pad, cx + Math.cos(ang) * (Math.min(cx, cy) - pad)));
+          const edgeY = Math.max(pad, Math.min(canvas.height - pad, cy + Math.sin(ang) * (Math.min(cx, cy) - pad)));
+          const refK = getMyKing();
+          const distTiles = Math.round(Math.hypot(pg.gx - refK.x, pg.gy - refK.y));
+
+          ctx.save();
+          ctx.globalAlpha = fadeAlpha;
+          ctx.fillStyle = 'rgba(9, 9, 15, 0.92)';
+          ctx.strokeStyle = pg.color;
+          ctx.lineWidth = 2;
+          ctx.shadowColor = pg.color;
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(edgeX, edgeY, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.font = 'bold 12px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pg.icon.split(' ')[0], edgeX, edgeY - 3);
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.fillStyle = pg.color;
+          ctx.fillText(`${distTiles}t`, edgeX, edgeY + 10);
+          ctx.restore();
+        }
+      }
+    }
+
+    // 2. Quick-Chat Emote Bubbles above Green King / Purple King
+    if (activeEmotes.length > 0) {
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      for (let i = activeEmotes.length - 1; i >= 0; i--) {
+        const em = activeEmotes[i];
+        const elapsed = nowMs - em.createdAt;
+        if (elapsed >= em.duration) {
+          activeEmotes.splice(i, 1);
+          continue;
+        }
+        const progress = elapsed / em.duration;
+        const fadeAlpha = progress > 0.78 ? (1 - progress) / 0.22 : 1;
+        const popScale = elapsed < 140 ? (0.6 + 0.4 * (elapsed / 140)) : 1;
+        const floatY = Math.sin(elapsed * 0.007) * 3;
+
+        const isPurpleEmote = em.role === 'PURPLE' && isCoopActive() && purpleKing.active;
+        const kwx = isPurpleEmote ? purpleWorldX : playerWorldX;
+        const kwy = isPurpleEmote ? purpleWorldY : playerWorldY;
+
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha;
+        ctx.translate(kwx, kwy - TILE * 0.95 + floatY);
+        ctx.scale(popScale, popScale);
+
+        const labelStr = `${em.icon} ${em.text}`;
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        const tw = ctx.measureText(labelStr).width;
+        const bw = tw + 18;
+        const bh = 26;
+
+        ctx.shadowColor = em.color;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = 'rgba(12, 12, 20, 0.95)';
+        ctx.strokeStyle = em.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-bw / 2, -bh / 2, bw, bh, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Speech pointer triangle
+        ctx.beginPath();
+        ctx.moveTo(-5, bh / 2);
+        ctx.lineTo(5, bh / 2);
+        ctx.lineTo(0, bh / 2 + 6);
+        ctx.closePath();
+        ctx.fillStyle = em.color;
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelStr, 0, 1);
+        ctx.restore();
+      }
+      ctx.restore();
     }
 
     if (activeFallAnim) {
